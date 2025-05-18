@@ -66,4 +66,5 @@ return {
     frames         = prompt("DAP Frames"),
     breakpoints    = prompt("DAP Breakpoints"),
   },
+  harpoon              = prompt("Harpoon"),
 }

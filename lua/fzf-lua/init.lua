@@ -241,6 +241,7 @@ do
     treesitter = { "fzf-lua.providers.buffers", "treesitter" },
     helptags = { "fzf-lua.providers.helptags", "helptags" },
     manpages = { "fzf-lua.providers.manpages", "manpages" },
+    harpoon = { "fzf-lua.providers.harpoon", "harpoon" },
     -- backward compat
     help_tags = { "fzf-lua.providers.helptags", "helptags" },
     man_pages = { "fzf-lua.providers.manpages", "manpages" },

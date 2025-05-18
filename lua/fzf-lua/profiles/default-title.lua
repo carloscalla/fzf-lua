@@ -70,4 +70,5 @@ return {
     frames         = title("DAP Frames"),
     breakpoints    = title("DAP Breakpoints"),
   },
+  harpoon              = title("Harpoon"),
 }

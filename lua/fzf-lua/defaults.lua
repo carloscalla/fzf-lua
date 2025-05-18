@@ -574,6 +574,22 @@ M.defaults.oldfiles             = {
   _actions          = function() return M.globals.actions.files end,
 }
 
+M.defaults.harpoon                = {
+  previewer              = M._default_previewer_fn,
+  file_icons             = 1,
+  color_icons            = true,
+  git_icons              = false,
+  cwd_prompt             = true,
+  cwd_prompt_shorten_len = 32,
+  cwd_prompt_shorten_val = 1,
+  fzf_opts               = { ["--multi"] = true, ["--scheme"] = "path" },
+  _fzf_nth_devicons      = true,
+  git_status_cmd         = {
+    "git", "-c", "color.status=false", "--no-optional-locks", "status", "--porcelain=v1" },
+  _actions               = function() return M.globals.actions.files end,
+  -- winopts                = { preview = { winopts = { cursorline = false } } },
+}
+
 M.defaults.quickfix             = {
   previewer   = M._default_previewer_fn,
   separator   = "▏",
