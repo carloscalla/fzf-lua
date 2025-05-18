@@ -442,6 +442,138 @@ M.file = function(x, opts)
   return table.concat(ret)
 end
 
+M.harpoon = function(idx, x, opts)
+  opts = opts or {}
+  local ret = {}
+  local icon, hl
+  local colon_start_idx = 1
+  if utils.__IS_WINDOWS then
+    if string.byte(x, #x) == 13 then
+      -- strip ^M added by the "dir /s/b" command
+      x = x:sub(1, #x - 1)
+    end
+    if path.is_absolute(x) then
+      -- ignore the first colon in the drive spec, e.g c:\
+      colon_start_idx = 3
+    end
+  end
+  local colon_idx = x:find(":", colon_start_idx, true) or 0
+  local file_part = colon_idx > 1 and x:sub(1, colon_idx - 1) or x
+  local rest_of_line = colon_idx > 1 and x:sub(colon_idx) or nil
+  -- strip ansi coloring from path so we can use filters
+  -- otherwise the ANSI escape sequence will get in the way
+  -- TODO: we only support path modification without ANSI
+  -- escape sequences, it becomes too expensive to modify
+  -- and restore the path with escape sequences
+  local stripped_filepath, file_is_ansi = (function()
+    if opts.no_ansi_colors then
+      return file_part, 0
+    else
+      return utils.strip_ansi_coloring(file_part)
+    end
+  end)()
+  local filepath = stripped_filepath
+  -- fd v8.3 requires adding '--strip-cwd-prefix' to remove
+  -- the './' prefix, will not work with '--color=always'
+  -- https://github.com/sharkdp/fd/blob/master/CHANGELOG.md
+  if opts.strip_cwd_prefix then
+    filepath = path.strip_cwd_prefix(filepath)
+  end
+  -- make path relative
+  if opts.cwd and #opts.cwd > 0 then
+    filepath = path.relative_to(filepath, opts.cwd)
+  end
+  if path.is_absolute(filepath) then
+    -- filter for cwd only
+    if opts.cwd_only then
+      local cwd = opts.cwd or uv.cwd()
+      if not path.is_relative_to(filepath, cwd) then
+        return nil
+      end
+    end
+    -- replace $HOME with ~
+    filepath = path.HOME_to_tilde(filepath)
+  end
+  -- only check for ignored patterns after './' was
+  -- stripped and path was transformed to relative
+  if opts.file_ignore_patterns then
+    for _, pattern in ipairs(opts.file_ignore_patterns) do
+      if #pattern > 0 and filepath:match(pattern) then
+        return nil
+      end
+    end
+  end
+  -- only shorten after we're done with all the filtering
+  -- save a copy for git indicator and icon lookups
+  local origpath = filepath
+  if opts.path_shorten then
+    filepath = path.shorten(filepath, tonumber(opts.path_shorten),
+      -- On Windows we want to shorten using the separator used by the `cwd` arg
+      -- otherwise we might have issues "lenghening" as in the case of git which
+      -- uses normalized paths (using /) for `rev-parse --show-toplevel` and `ls-files`
+      utils.__IS_WINDOWS and opts.cwd and path.separator(opts.cwd))
+  end
+  if opts.git_icons then
+    local diff_info = opts.diff_files
+        and opts.diff_files[utils._if_win(path.normalize(origpath), origpath)]
+    local indicators = diff_info and diff_info[1] or " "
+    for i = 1, #indicators do
+      icon = indicators:sub(i, i)
+      local git_icon = config.globals.git.icons[icon]
+      if git_icon then
+        icon = git_icon.icon
+        if opts.color_icons then
+          -- diff_info[2] contains 'is_staged' var, only the first indicator can be "staged"
+          local git_color = diff_info[2] and i == 1 and "green" or git_icon.color or "dark_grey"
+          icon = utils.ansi_codes[git_color](icon)
+        end
+      end
+      ret[#ret + 1] = icon
+    end
+    ret[#ret + 1] = utils.nbsp
+  end
+  if opts.file_icons then
+    icon, hl = devicons.get_devicon(origpath)
+    if hl and opts.color_icons then
+      icon = utils.ansi_from_rgb(hl, icon)
+    end
+    ret[#ret + 1] = icon
+    ret[#ret + 1] = utils.nbsp
+  end
+
+  -- Adds item index
+  ret[#ret + 1] = string.format("[%s]", idx)
+
+  local _fmt_postfix -- when using `path.filename_first` v2
+  if opts._fmt and type(opts._fmt.to) == "function" then
+    ret[#ret + 1], _fmt_postfix = opts._fmt.to(filepath, opts, { path = path, utils = utils })
+  else
+    ret[#ret + 1] = file_is_ansi > 0
+        -- filename is ansi escape colored, replace the inner string (#819)
+        -- escape `%` in path, since `string.gsub` also use it in target (#1443)
+        and file_part:gsub(utils.lua_regex_escape(stripped_filepath), (filepath:gsub("%%", "%%%%")))
+        or filepath
+  end
+  -- multiline is only enabled with grep-like output PATH:LINE:COL:
+  if opts.multiline and rest_of_line then
+    opts.multiline = tonumber(opts.multiline) or 1
+    -- Sould match both colored and non colored versions of
+    -- PATH:LINE:TEXT and PATH:LINE:COL:TEXT
+    local ansi_num = "[%[%d;m]"
+    local filespec = rest_of_line:match(string.format("^:%s-:%s-:", ansi_num, ansi_num))
+        or rest_of_line:match(string.format("^:%s-:", ansi_num))
+    if filespec then
+      rest_of_line = filespec
+          .. "\n"
+          .. string.rep(" ", 4)
+          .. rest_of_line:sub(#filespec + 1)
+    end
+  end
+  ret[#ret + 1] = rest_of_line
+  ret[#ret + 1] = _fmt_postfix
+  return table.concat(ret)
+end
+
 M.tag = function(x, opts)
   local name, file, text = x:match("([^\t]+)\t([^\t]+)\t(.*)")
   if not file or not name or not text then return x end

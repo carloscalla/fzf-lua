@@ -12,8 +12,8 @@ M.harpoon = function(opts)
   end
 
   local contents = function(cb)
-    local function add_entry(x, co)
-      x = make_entry.file(x, opts)
+    local function add_entry(idx, x, co)
+      x = make_entry.harpoon(idx, x, opts)
       if not x then
         return
       end
@@ -32,9 +32,8 @@ M.harpoon = function(opts)
     coroutine.wrap(function()
       local co = coroutine.running()
 
-      for _, file in ipairs(require("harpoon"):list():display()) do
-        print("harpoon", file)
-        add_entry(file, co)
+      for idx, file in ipairs(require("harpoon"):list():display()) do
+        add_entry(idx, file, co)
       end
 
       -- done

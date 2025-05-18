@@ -586,8 +586,25 @@ M.defaults.harpoon                = {
   _fzf_nth_devicons      = true,
   git_status_cmd         = {
     "git", "-c", "color.status=false", "--no-optional-locks", "status", "--porcelain=v1" },
-  _actions               = function() return M.globals.actions.files end,
-  -- winopts                = { preview = { winopts = { cursorline = false } } },
+  actions       = {
+    ["default"] = function(selected)
+      local list = require("harpoon"):list()
+      local idx = tonumber(selected[1]:match "[(%d+)]")
+      print(idx)
+      if idx then
+        list:select(idx)
+      end
+    end,
+  },
+  winopts = {
+    row = 1,
+    col = 0,
+    width = 1,
+    height = 15,
+    preview = {
+      hidden = true,
+    },
+  },
 }
 
 M.defaults.quickfix             = {
